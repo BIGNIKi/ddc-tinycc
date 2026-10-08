@@ -36,48 +36,56 @@
 - Docker Desktop (запущен).
 - Собранный образ `trusted-toolchain` (из проекта `trusted-toolchain-docker`).
 
-## Шаг 1 — собрать tinycc доверенным gcc и проверить под musl
+## Самосборка tinycc (шаги 1–2)
 
-Проверяет, что доверенный gcc собирает tinycc и что получившийся tcc работает под musl
-(компилирует и запускает программу).
+Скрипт `build-selfcompile.sh` из одного исходника делает два шага:
 
-**1. Достать чистый исходник tinycc** (в текущую папку, нужен интернет):
+- **Шаг 1** — доверенный gcc собирает tinycc (`A1`). Проверяем, что gcc вообще
+  собирает рабочий tinycc под musl.
+- **Шаг 2** — `A1` собирает тот же tinycc (`A2`). Проверяем, что tinycc умеет
+  собрать сам себя (`A1 → A2`). `A2` — «детерминированный» компилятор, который
+  на шаге 4 будем сравнивать побайтово с `A2` другой ветки.
+
+**1. Достать чистый исходник tinycc** (в текущую папку, нужен интернет). Нужно один раз —
+если `tcc-mob.tar` уже лежит рядом, пропусти:
 
 ```sh
 git clone --single-branch --branch mob https://github.com/TinyCC/tinycc.git tcc-upstream
 git -C tcc-upstream archive --format=tar --prefix=tcc/ 9db1105c32afd3dcf0c28b8186f08e63c761b2b5 > tcc-mob.tar
 ```
 
-**2. Собрать и проверить в контейнере.**
+**2. Запустить сборку в контейнере.**
 
 Linux / macOS:
 
 ```sh
-docker run --rm -v "$(pwd)":/work trusted-toolchain /bin/sh /work/build-test.sh
+docker run --rm -v "$(pwd)":/work trusted-toolchain /bin/sh /work/build-selfcompile.sh
 ```
 
 Windows (Git Bash), подставь свой путь к этой папке:
 
 ```sh
-MSYS_NO_PATHCONV=1 docker run --rm -v "C:/path/to/ddc-tinycc":/work trusted-toolchain /bin/sh /work/build-test.sh
+MSYS_NO_PATHCONV=1 docker run --rm -v "C:/path/to/ddc-tinycc":/work trusted-toolchain /bin/sh /work/build-selfcompile.sh
 ```
 
-Ожидаемый результат в конце:
+Готовые компиляторы появятся в папке `out/` (`tcc-A1`, `tcc-A2`). Ожидаемый хвост вывода:
 
 ```
 tcc version 0.9.28rc (x86_64 Linux)
 hi 42
 ```
 
+(плюс контрольные суммы `A1` и `A2` — они разные, это нормально; сравнение между ветками будет на шаге 4).
+
 ## Файлы
 
-- `build-test.sh` — сборка tinycc доверенным gcc + проверка (запускается внутри контейнера).
+- `build-selfcompile.sh` — самосборка tinycc (шаги 1–2), запускается внутри контейнера.
 - `hello.c` — тестовая программа.
 
 ## Статус
 
 - [x] Шаг 1 — доверенный gcc собирает tinycc, tcc работает под musl.
-- [ ] Шаг 2 — самосборка: tcc собирает сам tinycc (второй шаг DDC).
+- [ ] Шаг 2 — самосборка: tcc собирает сам tinycc (`A1 → A2`).
 - [ ] Шаг 3 — второй доверенный компилятор (скачанный musl-gcc) для «разнообразия».
 - [ ] Шаг 4 — двойная пересборка обеих веток и побайтовое сравнение.
 - [ ] Шаг 5 — всё в один скрипт-пайплайн.
