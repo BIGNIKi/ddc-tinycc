@@ -1,5 +1,5 @@
 tcc-upstream/
-tcc-mob.tar
+input/tcc-mob.tar
 hello
 *.o
 out/

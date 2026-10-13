@@ -38,7 +38,7 @@
 
 ## Самосборка tinycc (шаги 1–2)
 
-Скрипт `build-selfcompile.sh` берёт один и тот же исходник tinycc (`tcc-mob.tar`)
+Скрипт `build-branchA.sh` берёт один и тот же исходник tinycc (`tcc-mob.tar`)
 и собирает из него компилятор дважды:
 
 - **Шаг 1** — доверенный gcc собирает tinycc (`A1`). Проверяем, что gcc вообще
@@ -46,17 +46,17 @@
 - **Шаг 2** — `A1` собирает тот же tinycc (`A2`). Проверяем, что tinycc умеет
   собрать сам себя (`A1 → A2`).
 
-Это одна ветка схемы DDC: `A → A1 → A2`. На шаге 3 появится вторая, «разнообразная»
-ветка на другом доверенном компиляторе: `B → B1 → B2`. На шаге 4 сравним
+Это доверенная ветка схемы DDC: `A → A1 → A2`. На шаге 3 появится проверяемая
+ветка на независимом компиляторе (Alpine gcc): `B → B1 → B2`. На шаге 4 сравним
 побайтово `A2` и `B2` — если совпали, исходник tinycc однозначно определяет бинарник
 (база DDC работает).
 
-**1. Достать чистый исходник tinycc** (в текущую папку, нужен интернет). Нужно один раз —
-если `tcc-mob.tar` уже лежит рядом, пропусти:
+**1. Достать чистый исходник tinycc** (кладём в `input/`, нужен интернет). Нужно сделать один раз —
+если `input/tcc-mob.tar` уже есть, пропусти:
 
 ```sh
 git clone --single-branch --branch mob https://github.com/TinyCC/tinycc.git tcc-upstream
-git -C tcc-upstream archive --format=tar --prefix=tcc/ 9db1105c32afd3dcf0c28b8186f08e63c761b2b5 > tcc-mob.tar
+git -C tcc-upstream archive --format=tar --prefix=tcc/ 9db1105c32afd3dcf0c28b8186f08e63c761b2b5 > input/tcc-mob.tar
 ```
 
 **2. Запустить сборку в контейнере.**
@@ -64,13 +64,13 @@ git -C tcc-upstream archive --format=tar --prefix=tcc/ 9db1105c32afd3dcf0c28b818
 Linux / macOS:
 
 ```sh
-docker run --rm -v "$(pwd)":/work trusted-toolchain /bin/sh /work/build-selfcompile.sh
+docker run --rm -v "$(pwd)":/work trusted-toolchain /bin/sh /work/src/build-branchA.sh
 ```
 
 Windows (Git Bash), подставь свой путь к этой папке:
 
 ```sh
-MSYS_NO_PATHCONV=1 docker run --rm -v "C:/path/to/ddc-tinycc":/work trusted-toolchain /bin/sh /work/build-selfcompile.sh
+MSYS_NO_PATHCONV=1 docker run --rm -v "C:/path/to/ddc-tinycc":/work trusted-toolchain /bin/sh /work/src/build-branchA.sh
 ```
 
 Готовые компиляторы появятся в папке `out/` (`tcc-A1`, `tcc-A2`). Ожидаемый хвост вывода:
@@ -84,13 +84,16 @@ hi 42
 
 ## Файлы
 
-- `build-selfcompile.sh` — самосборка tinycc (шаги 1–2), запускается внутри контейнера.
-- `hello.c` — тестовая программа.
+- `src/utils/build-common.sh` — общая часть веток A и B (флаги сборки и функция сборки); подключается остальными скриптами.
+- `src/build-branchA.sh` — ветка A: самосборка tinycc (шаги 1–2), запускается в контейнере `trusted-toolchain`.
+- `src/build-branchB.sh` — ветка B: сборка tinycc независимым Alpine-gcc (шаг 3), запускается в контейнере `ddc-alpine`.
+- `Dockerfile.branchB` — образ `ddc-alpine` (Alpine gcc + наши `/x86_64`) для ветки B.
+- `input/` — входные данные для контейнера: `tcc-mob.tar` (исходник tinycc) и `hello.c` (тестовая программа).
 
 ## Статус
 
 - [x] Шаг 1 — доверенный gcc собирает tinycc, tcc работает под musl.
 - [x] Шаг 2 — самосборка: tcc собирает сам tinycc (`A1 → A2`).
-- [ ] Шаг 3 — второй доверенный компилятор (скачанный musl-gcc) для «разнообразия».
-- [ ] Шаг 4 — двойная пересборка обеих веток и побайтовое сравнение.
+- [ ] Шаг 3 — проверяемая ветка на независимом компиляторе (Alpine gcc): `B → B1 → B2`.
+- [ ] Шаг 4 — двойная пересборка обеих веток и побайтовое сравнение `A2` и `B2`.
 - [ ] Шаг 5 — всё в один скрипт-пайплайн.
